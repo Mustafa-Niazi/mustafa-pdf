@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!DOCTYPE html><html lang="ar">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,10 +33,22 @@ tfoot td { background:#eee; font-weight:bold; }
 #updateBtn:hover{ background:#0078d7; }
 
 @media (max-width: 768px) {
-  .form-row { flex-wrap: wrap; justify-content: flex-start; }
+  /* .form-row { flex-wrap: wrap; justify-content: flex-start; }
   .form-group { flex:1 1 45%; min-width:auto; }
   .form-group input { width:100%; }
-  .form-row button { flex:1 1 100%; margin-top:8px; }
+  .form-row button { flex:1 1 100%; margin-top:8px; } */
+  .main{
+    width: 768px;
+  }
+  .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 11px;
+    overflow-x: auto;
+}
+
 }
 
 /* مديونية */
@@ -51,8 +62,10 @@ tfoot #finalTotal { text-align:center; }
 </style>
 </head>
 <body>
+ 
 
-<h2> إدخال بيانات PDF📄 </h2>
+<div class="main">
+  <h2> إدخال بيانات PDF📄 </h2>
 <div class="box">
   <form id="dataForm" onsubmit="return false;" class="form-row">
     <div class="form-group">
@@ -119,13 +132,6 @@ tfoot #finalTotal { text-align:center; }
     <button class="debtBtn" onclick="addDebtOrDeposit('debt')">➕ مديونية</button>
     <button class="depositBtn" onclick="addDebtOrDeposit('deposit')">➕ إيداع</button>
   </div>
-
-  <table id="debtDepositTable">
-    <thead><tr><th>التفاصيل</th><th>المبلغ</th><th>عمليات</th></tr></thead>
-    <tbody></tbody>
-    <tfoot><tr><td style="text-align:center;">الإجمالي النهائي</td><td id="finalTotal">0.00</td><td></td></tr></tfoot>
-  </table>
-
   <div class="editBox" id="editBox">
     <h3 style="font-size:20px;">✏️ تعديل الصف</h3>
     <input type="number" id="editAmount" placeholder="المبلغ" step="0.01">
@@ -134,11 +140,21 @@ tfoot #finalTotal { text-align:center; }
     <button onclick="saveEdit()">حفظ التعديل</button>
     <button onclick="cancelEdit()">إلغاء</button>
   </div>
+
+  <table id="debtDepositTable">
+    <thead><tr><th>التفاصيل</th><th>المبلغ</th><th>عمليات</th></tr></thead>
+    <tbody></tbody>
+    <tfoot><tr><td style="text-align:center;">الإجمالي النهائي</td><td id="finalTotal">0.00</td><td></td></tr></tfoot>
+  </table>
+
 </div>
 <div style="margin:12px auto; text-align:center;">
   <button onclick="printData()">🖨️ طباعة البيانات</button>
   <button onclick="copyData()">📋 نسخ البيانات</button>
   <button onclick="exportExcel()">📊 حفظ كـ Excel</button>
+</div>
+
+
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.13.216/pdf.min.js"></script>
@@ -150,7 +166,12 @@ function cleanTableForExport(tableId){
   clone.querySelectorAll("button").forEach(b=>b.remove());
   return clone;
 }
-
+ // 💾 حفظ Excel
+    function exportExcel() {
+      const table = document.getElementById("dataTable");
+      const wb = XLSX.utils.table_to_book(table, { sheet: "البيانات" });
+      XLSX.writeFile(wb, "البيانات.xlsx");
+    }
 function printData(){
   const tablePDF = cleanTableForExport("dataTable");
   const tableDebt = cleanTableForExport("debtDepositTable");
@@ -216,7 +237,85 @@ function deleteRowDebt(button){ button.parentElement.parentElement.remove(); upd
 function editRowFunc(button,type){ editRow=button.parentElement.parentElement; editType=type; const amount=editRow.cells[1].innerText; const details=editRow.cells[0].innerText; let extractedDate=details.match(/\d{1,2}-\d{1,2}-\d{4}/); extractedDate=extractedDate?extractedDate[0]:''; document.getElementById("editAmount").value=amount; document.getElementById("editDate").value=extractedDate; document.getElementById("editBox").style.display='block'; }
 function saveEdit(){ if(!editRow) return; let amount=parseFloat(document.getElementById("editAmount").value); let date=document.getElementById("editDate").value.trim(); if(isNaN(amount)||!date){ alert("يرجى إدخال المبلغ والتاريخ بشكل صحيح!"); return; } date=padDate(date); editRow.cells[1].innerText=amount.toFixed(2); let detailsText=editRow.cells[0].innerText; detailsText=detailsText.replace(/\d{2}-\d{2}-\d{4}/,date); editRow.cells[0].innerText=detailsText; updateFinalTotal(); cancelEdit(); }
 function cancelEdit(){ editRow=null; editType=''; document.getElementById("editBox").style.display='none'; }
+
+function cleanTableForExport(id){ const c=document.getElementById(id).cloneNode(true); c.querySelectorAll("button").forEach(b=>b.remove()); return c; }
+
+// 💾 حفظ Excel (نسخة الأصلية – شيت واحد فقط)
+
+function exportExcel() {
+  const table1 = document.getElementById("dataTable");
+  const table2 = document.getElementById("debtDepositTable");
+
+  if (!table1 || !table2) {
+    alert("❌ لم يتم العثور على أحد الجدولين");
+    return;
+  }
+
+  // 🧩 دالة لجلب النص من الجدول (تشمل الـ inputs)
+  function extractTableData(table) {
+    const rows = Array.from(table.querySelectorAll("tr"));
+    return rows.map(row =>
+      Array.from(row.querySelectorAll("th, td")).map(cell => {
+        const input = cell.querySelector("input, textarea, select");
+        return input ? input.value.trim() : cell.innerText.trim();
+      })
+    );
+  }
+
+  // 🟢 تحويل الجدولين لمصفوفات مع حذف عمود العمليات
+  const data1 = extractTableData(table1).map(row => row.slice(0, -1));
+  const data2 = extractTableData(table2).map(row => row.slice(0, -1));
+
+  // 🟢 تجهيز صفوف الإخراج
+  const finalData = [
+    ["📋 جدول البيانات الأساسية"],
+    ...data1,
+    [],
+    ["📊 جدول المديونية والإيداع"],
+  ];
+
+  // 🟢 تنسيق جدول المديونية والإيداع (دمج 8 أعمدة للتفاصيل + 1 للمبلغ)
+  data2.forEach((row, i) => {
+    const mergedDetails = row.slice(0, -1).join(" - "); // ندمج التفاصيل كنص واحد
+    const amount = row[row.length - 1]; // آخر عمود (المبلغ)
+    finalData.push([mergedDetails, "", "", "", "", "", "", "", amount]);
+  });
+
+  // 🟢 تحويل لمخطط Excel
+  const ws = XLSX.utils.aoa_to_sheet(finalData);
+
+  // 🟢 دمج الخلايا للتفاصيل في كل صف من المديونية/الإيداع
+  const startRow = data1.length + 3; // أول صف المديونية بعد البيانات الأساسية + الفاصل + عنوان
+  data2.forEach((row, i) => {
+    const rowIndex = startRow + i;
+    ws["!merges"] = ws["!merges"] || [];
+    ws["!merges"].push({
+      s: { r: rowIndex, c: 0 }, // البداية: الصف، العمود
+      e: { r: rowIndex, c: 7 }  // النهاية: نفس الصف، العمود 7 (دمج 8 أعمدة)
+    });
+  });
+
+  // 🟢 ضبط عرض الأعمدة
+  ws["!cols"] = [
+    { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 20 },
+  ];
+
+  // 🟢 إنشاء الكتاب وتصديره
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "البيانات الكاملة");
+
+  XLSX.writeFile(wb, "البيانات_النهائية.xlsx");
+}
+
+
+
+
+
+
+
 </script>
 
+
 </body>
-</html>
+</html>  
